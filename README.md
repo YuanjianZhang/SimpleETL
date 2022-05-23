@@ -8,6 +8,12 @@ env
 
 Features
 --
-* [ ] 将sqlserver数据传输至mysql库
+
+* 数据源
+  * [x] SQL SERVER
+  * [ ] Oracle
+* 目标库
+  * [x] MYSQL
+  * [ ] Oracle
 * [ ] 定时任务
 * [ ] 传输数据处理
