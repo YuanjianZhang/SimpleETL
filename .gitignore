@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+/SimpleETL.Test/Config.json
+/SimpleETL.ConsoleHost/appsettings.json
+/SimpleETL.ConsoleHost/appsettings.Development.json
