@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "SimpleETL.ConsoleHost": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
