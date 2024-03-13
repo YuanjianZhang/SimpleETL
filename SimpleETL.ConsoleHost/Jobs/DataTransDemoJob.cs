@@ -1,74 +1,64 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Quartz;
 using SimpleETL.Business;
 using SimpleETL.ConsoleHost.Database;
 using SimpleETL.DB.Common;
-using SimpleETL.DB.Common.SQL;
 using SimpleETL.DB.Trans;
+using SimpleETL.DB.Trans.Interface;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Reflection;
 using System.Text;
-using System.Transactions;
 
 namespace SimpleETL.ConsoleHost.Jobs
 {
+    [DisallowConcurrentExecution]
     public class DataTransDemoJob : IJob
     {
-        private readonly IConfiguration _config;
-        private readonly ILogger<DataTransDemoJob> logger;
-        private readonly ILoggerFactory loggerFactory;
-        private readonly OracleDBContext _oracleDBContext;
-        private readonly SqlServerDBContext _sqlServerDBContext;
-        private readonly MySQLDBContext _mySQLDBContext;
-
-        public DataTransDemoJob(ILoggerFactory loggerFactory, ILogger<DataTransDemoJob> logger, IConfiguration configuration, OracleDBContext? oracleDBContext = null, SqlServerDBContext? sqlServerDBContext = null, MySQLDBContext? mySQLDBContext = null)
+        public DataTransDemoJob(ILoggerFactory logger, IConfiguration config, ITransferFactory transferFactory)
         {
-            this.logger = logger;
-            this.loggerFactory = loggerFactory;
-            this._oracleDBContext = oracleDBContext;
-            this._sqlServerDBContext = sqlServerDBContext;
-            this._mySQLDBContext = mySQLDBContext;
-            this._config = configuration;
+            this.logger = logger.CreateLogger<DataTransDemoJob>();
+            this.config = config;
+            this.transferFactory = transferFactory;
         }
-
+        private readonly IConfiguration config;
+        private readonly ILogger logger;
+        private readonly ITransferFactory transferFactory;
         public Task Execute(IJobExecutionContext context)
         {
+            logger.LogInformation("Job Start");
             try
             {
-                var source = context.JobDetail.JobDataMap.Get("source") as string;
-                var target = context.JobDetail.JobDataMap.Get("target") as string;
-
-                
-                logger.LogInformation("load schema");
-                _oracleDBContext?.Database.EnsureCreated();
-                _sqlServerDBContext?.Database.EnsureCreated();
-                _mySQLDBContext?.Database.EnsureCreated();
-
-                if (_sqlServerDBContext.Demo.Count()<=0)
+                var sourcetype = context.JobDetail.JobDataMap.Get("sourcetype") as string;
+                var targettype = context.JobDetail.JobDataMap.Get("targettype") as string;
+                if (string.IsNullOrEmpty(sourcetype) || string.IsNullOrWhiteSpace(targettype))
                 {
-                    logger.LogInformation($"load test data :{source}");
-                    LoadTestTableData(source, 10000);
+                    logger.LogWarning("目标库或源数据库不明确！");
+                    return Task.CompletedTask;
                 }
+                var sourceconnection = config[sourcetype];
+                var targetconnection = config[targettype];
 
-                logger.LogInformation("reset target table;");
-                ResetTable(target, typeof(M_BulkCopyDemo));
+                logger.LogInformation("load schema");
+
+                LoadTestTableData(sourcetype, sourceconnection, 10000);
+
+                logger.LogInformation("reset target table");
+                ResetTable(targettype, targetconnection, typeof(M_BulkCopyDemo));
 
                 logger.LogInformation("start transfer data");
-                var bll = new DataTransferDemo(loggerFactory.CreateLogger<DataTransferDemo>(), new TransferFactory(loggerFactory));
-                bll.TransTestTableData(source, _config.GetConnectionString(source), target, _config.GetConnectionString(target));
-
+                var bll = new DataTransferDemo(logger, new TransferFactory(logger), config, sourcetype, targettype);
+                bll.TransTestTableData(sourcetype, sourceconnection, targettype, targetconnection);
             }
             catch (Exception ex)
             {
-                logger.LogTrace(ex, "Execute Job Exception");
+                logger.LogError(ex, "Execute Job Exception");
             }
             return Task.CompletedTask;
         }
 
-        private void ResetTable(string targettype,Type tableModel)
+        private void ResetTable(string targettype, string targetconnection, Type tableModel)
         {
             var tablename = tableModel.GetCustomAttribute<TableAttribute>()?.Name;
             if (string.IsNullOrWhiteSpace(tablename)) return;
@@ -78,13 +68,28 @@ namespace SimpleETL.ConsoleHost.Jobs
                 switch (type)
                 {
                     case DatabaseType.SqlServer:
-                        if (_sqlServerDBContext.Demo.Count() > 0) _sqlServerDBContext.Database.ExecuteSqlRaw(sql);
+                        using (var context = new SqlServerDBContext(targetconnection))
+                        {
+                            context.Database.EnsureCreated();
+                            if (context.Demo.Count() > 0)
+                                context.Database.ExecuteSqlRaw(sql);
+                        }
                         break;
                     case DatabaseType.MySQL:
-                        if (_mySQLDBContext.Demo.Count() > 0) _mySQLDBContext.Database.ExecuteSqlRaw(sql);
+                        using (var context = new MySQLDBContext(targetconnection))
+                        {
+                            context.Database.EnsureCreated();
+                            if (context.Demo.Count() > 0)
+                                context.Database.ExecuteSqlRaw(sql);
+                        }
                         break;
                     case DatabaseType.Oracle:
-                        if (_oracleDBContext.Demo.Count() > 0) _oracleDBContext.Database.ExecuteSqlRaw(sql);
+                        using (var context = new OracleDBContext(targetconnection))
+                        {
+                            context.Database.EnsureCreated();
+                            if (context.Demo.Count() > 0)
+                                context.Database.ExecuteSqlRaw(sql);
+                        }
                         break;
                     default:
                         break;
@@ -92,42 +97,79 @@ namespace SimpleETL.ConsoleHost.Jobs
             }
         }
 
-        protected void LoadTestTableData(string sourcetype,int num)
+        protected void LoadTestTableData(string sourcetype, string sourceconnection, int num)
         {
-            var loopnum = num / 100 + (num % 100 > 0 ? 1 : 0);
-            for (int i = 0; i < loopnum; i++)
+            if (Enum.TryParse<DatabaseType>(sourcetype, true, out DatabaseType type))
             {
-                var insertArray = new List<M_BulkCopyDemo>();
-                for (int j = 0; j < 100; j++)
+                switch (type)
                 {
-                    M_BulkCopyDemo m = new M_BulkCopyDemo();
-                    m.NAME = Guid.NewGuid().ToString("N");
-                    m.CREATETICKS = DateTimeOffset.Now.ToUnixTimeMilliseconds();
-                    m.CREATETIME = DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss"); 
-                    m.CONTEXT = RandomStr(100);
-                    insertArray.Add(m);
-                }
-                if (Enum.TryParse<DatabaseType>(sourcetype, true, out DatabaseType type))
-                {
-                    switch (type)
-                    {
-                        case DatabaseType.SqlServer:
-                            _sqlServerDBContext.Demo.AddRange(insertArray.ToArray());
-                            _sqlServerDBContext.SaveChanges();
-                            break;
-                        case DatabaseType.MySQL:
-                            _mySQLDBContext.Demo.AddRange(insertArray.ToArray());
-                            _mySQLDBContext.SaveChanges();
-                            break;
-                        case DatabaseType.Oracle:
-                            _oracleDBContext.Demo.AddRange(insertArray.ToArray());
-                            _oracleDBContext.SaveChanges();
-                            break;
-                        default:
-                            break;
-                    }
+                    case DatabaseType.SqlServer:
+                        using (var context = new SqlServerDBContext(sourceconnection))
+                        {
+                            context.Database.EnsureCreated();
+                            if (context.Demo.Count() <= 0)
+                            {
+                                logger.LogInformation($"load test data :{sourcetype}");
+                                var loopnum = num / 100 + (num % 100 > 0 ? 1 : 0);
+                                for (int i = 0; i < loopnum; i++)
+                                {
+                                    context.Demo.AddRange(CreateTestData(100).ToArray());
+                                    context.SaveChanges();
+                                }
+                            }
+                        }
+                        break;
+                    case DatabaseType.MySQL:
+                        using (var context = new MySQLDBContext(sourceconnection))
+                        {
+                            context.Database.EnsureCreated();
+                            if (context.Demo.Count() <= 0)
+                            {
+                                logger.LogInformation($"load test data :{sourcetype}");
+                                var loopnum = num / 100 + (num % 100 > 0 ? 1 : 0);
+                                for (int i = 0; i < loopnum; i++)
+                                {
+                                    context.Demo.AddRange(CreateTestData(100).ToArray());
+                                    context.SaveChanges();
+                                }
+                            }
+                        }
+                        break;
+                    case DatabaseType.Oracle:
+                        using (var context = new OracleDBContext(sourceconnection))
+                        {
+                            context.Database.EnsureCreated();
+                            if (context.Demo.Count() <= 0)
+                            {
+                                logger.LogInformation($"load test data :{sourcetype}");
+                                var loopnum = num / 100 + (num % 100 > 0 ? 1 : 0);
+                                for (int i = 0; i < loopnum; i++)
+                                {
+                                    context.Demo.AddRange(CreateTestData(100).ToArray());
+                                    context.SaveChanges();
+                                }
+                            }
+                        }
+                        break;
+                    default:
+                        break;
                 }
             }
+        }
+
+        protected List<M_BulkCopyDemo> CreateTestData(int num = 100)
+        {
+            var insertArray = new List<M_BulkCopyDemo>();
+            for (int j = 0; j < num; j++)
+            {
+                M_BulkCopyDemo m = new M_BulkCopyDemo();
+                m.NAME = Guid.NewGuid().ToString("N");
+                m.CREATETICKS = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+                m.CREATETIME = DateTimeOffset.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                m.CONTEXT = RandomStr(100);
+                insertArray.Add(m);
+            }
+            return insertArray;
         }
 
         private string RandomStr(int length)
@@ -139,7 +181,7 @@ namespace SimpleETL.ConsoleHost.Jobs
             {
                 var idx = random.Next(0, 25);
                 sb.Append(str[idx]);
-                if (sb.Length>=length)
+                if (sb.Length >= length)
                 {
                     break;
                 }

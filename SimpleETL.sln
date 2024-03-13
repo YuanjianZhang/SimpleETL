@@ -13,6 +13,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleETL.DB.Trans", "Simpl
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleETL.ConsoleHost", "SimpleETL.ConsoleHost\SimpleETL.ConsoleHost.csproj", "{663BF8DA-837F-4E2B-8E6F-2F876BB6B46F}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SimpleETL.DB.Encrypt", "SimpleETL.DB.Encrypt\SimpleETL.DB.Encrypt.csproj", "{90D46531-9792-45A8-A08E-AA1A84702A38}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleETL.Util", "SimpleETL.Util\SimpleETL.Util.csproj", "{B767E397-0774-4690-A2E5-5C265B346E16}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +39,14 @@ Global
 		{663BF8DA-837F-4E2B-8E6F-2F876BB6B46F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{663BF8DA-837F-4E2B-8E6F-2F876BB6B46F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{663BF8DA-837F-4E2B-8E6F-2F876BB6B46F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{90D46531-9792-45A8-A08E-AA1A84702A38}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{90D46531-9792-45A8-A08E-AA1A84702A38}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{90D46531-9792-45A8-A08E-AA1A84702A38}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{90D46531-9792-45A8-A08E-AA1A84702A38}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B767E397-0774-4690-A2E5-5C265B346E16}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B767E397-0774-4690-A2E5-5C265B346E16}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B767E397-0774-4690-A2E5-5C265B346E16}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B767E397-0774-4690-A2E5-5C265B346E16}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

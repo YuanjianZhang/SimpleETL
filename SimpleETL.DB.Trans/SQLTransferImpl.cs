@@ -1,12 +1,12 @@
 ﻿using Microsoft.Extensions.Logging;
 using MySqlConnector;
-using System.Data.SqlClient;
-using SimpleETL.DB.Trans.Interface;
-using SimpleETL.DB.Common;
-using SimpleETL.DB.Common.SQL;
 using Oracle.ManagedDataAccess.Client;
+using SimpleETL.DB.Common;
 using SimpleETL.DB.Common.MySQL;
+using SimpleETL.DB.Common.SQL;
+using SimpleETL.DB.Trans.Interface;
 using System.Data;
+using System.Data.SqlClient;
 
 namespace SimpleETL.DB.Trans
 {
@@ -16,7 +16,7 @@ namespace SimpleETL.DB.Trans
     public class SQLTransferImpl : IDBTransfer
     {
         #region 构造函数
-        public SQLTransferImpl(ILogger<SQLTransferImpl> logger, string sqlServerConnectionString, DatabaseType targetDB, string targetDBConnectionString)
+        public SQLTransferImpl(ILogger logger, string sqlServerConnectionString, DatabaseType targetDB, string targetDBConnectionString)
         {
             _logger = logger;
             _sqlHelper = new SqlHelper(_logger, sqlServerConnectionString);
@@ -43,7 +43,7 @@ namespace SimpleETL.DB.Trans
         #endregion
 
         #region 属性
-        private ILogger<SQLTransferImpl> _logger;
+        private ILogger _logger;
         private DatabaseType _targetDB;
         private string _sourceConnectionString;
         private readonly SqlHelper _sqlHelper;
@@ -68,14 +68,14 @@ namespace SimpleETL.DB.Trans
                     case DatabaseType.MySQL:
                         return await BulkCopyToMySQL(sourceSql, targetTableName, sourceParameter);
                         break;
-                    case DatabaseType.SqlServer:throw new NotImplementedException();
+                    case DatabaseType.SqlServer: throw new NotImplementedException();
                     case DatabaseType.Oracle:
                         return await BulkCopyToOracle(sourceSql, targetTableName, sourceParameter);
                         break;
                     default: throw new NotImplementedException();
                 }
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 throw ex;
             }
@@ -232,10 +232,11 @@ namespace SimpleETL.DB.Trans
                 }
                 bulkCopy.NotifyAfter = 1000;
                 long totalnum = 0;
-                bulkCopy.OracleRowsCopied += (s, e) => {
+                bulkCopy.OracleRowsCopied += (s, e) =>
+                {
                     totalnum += e.RowsCopied;
                     _logger.LogWarning($"BulkCopyToOracle {e.RowsCopied} ...");
-                    
+
                 };
                 bulkCopy.WriteToServer(reader);
                 cmd.Parameters.Clear();
@@ -246,7 +247,7 @@ namespace SimpleETL.DB.Trans
                 throw;
             }
         }
-        
+
         #endregion
     }
 }

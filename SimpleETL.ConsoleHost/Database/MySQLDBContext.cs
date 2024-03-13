@@ -1,13 +1,9 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using SimpleETL.Util;
 
 namespace SimpleETL.ConsoleHost.Database
 {
-    public class MySQLDBContext:BaseDBContext<MySQLDBContext>
+    public class MySQLDBContext : BaseDBContext<MySQLDBContext>
     {
         public MySQLDBContext(string connectionString) : base(connectionString) { }
         public MySQLDBContext(DbContextOptions<MySQLDBContext> options) : base(options) { }
@@ -16,7 +12,11 @@ namespace SimpleETL.ConsoleHost.Database
         {
             if (!optionsBuilder.IsConfigured)
             {
-                optionsBuilder.UseMySql(_connectionString, new MySqlServerVersion(new Version(8, 0, 31)));
+                optionsBuilder
+                    .LogTo(GlobalConfig.DBContext_EnableLog ? Console.WriteLine : _ => { })
+                    .EnableSensitiveDataLogging(GlobalConfig.DBContext_EnableSensitiveDataLog)
+                    .EnableDetailedErrors(GlobalConfig.DBContext_EnableDetailedErrors)
+                    .UseMySql(_connectionString, new MySqlServerVersion(new Version(8, 0, 31)));
             }
             base.OnConfiguring(optionsBuilder);
         }

@@ -12,14 +12,14 @@ namespace SimpleETL.DB.Common.SQL
     /// </summary>
     public class SqlHelper : IDBHelper
     {
-
+        private ILogger _logger;
+        private string _connectionString;
         public SqlHelper(ILogger logger, string connectionString)
         {
             _logger = logger;
             _connectionString = connectionString;
         }
-        private ILogger _logger;
-        private string _connectionString;
+
         public SqlHelper(string connectionString)
         {
             _connectionString = connectionString;
@@ -132,7 +132,7 @@ namespace SimpleETL.DB.Common.SQL
                 using SqlTransaction transaction = connection.BeginTransaction();
                 using SqlBulkCopy bc = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction);
                 bc.DestinationTableName = targetTableName;
-                GreanMapping( await GetTableSchemaDict(targetTableName), dtBulk).ForEach(x => bc.ColumnMappings.Add(x));
+                GreanMapping(await GetTableSchemaDict(targetTableName), dtBulk).ForEach(x => bc.ColumnMappings.Add(x));
                 try
                 {
                     bc.WriteToServer(dtBulk);
@@ -158,7 +158,7 @@ namespace SimpleETL.DB.Common.SQL
                 if (connection.State != ConnectionState.Open) connection.Open();
                 using SqlBulkCopy bc = new SqlBulkCopy(connection);
                 bc.DestinationTableName = targetTableName;
-                GreanMapping( await GetTableSchemaDict(targetTableName), dtBulk).ForEach(x => bc.ColumnMappings.Add(x));
+                GreanMapping(await GetTableSchemaDict(targetTableName), dtBulk).ForEach(x => bc.ColumnMappings.Add(x));
                 await bc.WriteToServerAsync(dtBulk);
             }
             catch
@@ -176,7 +176,7 @@ namespace SimpleETL.DB.Common.SQL
                 using SqlTransaction transaction = connection.BeginTransaction();
                 using SqlBulkCopy bc = new SqlBulkCopy(connection, SqlBulkCopyOptions.Default, transaction);
                 bc.DestinationTableName = targetTableName;
-                GreanMapping( await GetTableSchemaDict(targetTableName), dtBulk).ForEach(x => bc.ColumnMappings.Add(x));
+                GreanMapping(await GetTableSchemaDict(targetTableName), dtBulk).ForEach(x => bc.ColumnMappings.Add(x));
                 try
                 {
                     await bc.WriteToServerAsync(dtBulk);

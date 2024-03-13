@@ -1,15 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
+﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Quartz;
-using Quartz.Util;
-using Serilog;
-using Serilog.Sinks.SystemConsole.Themes;
-using SimpleETL.ConsoleHost.Database;
 using SimpleETL.ConsoleHost.Jobs;
+using SimpleETL.DB.Encrypt.Extension;
 using SimpleETL.DB.Trans;
 using SimpleETL.DB.Trans.Interface;
+using SimpleETL.Util;
 
 namespace SimpleETL.ConsoleHost
 {
@@ -17,93 +15,72 @@ namespace SimpleETL.ConsoleHost
     {
         static async Task Main(string[] args)
         {
-            Log.Logger = new LoggerConfiguration()
-                        .WriteTo.Console(theme: AnsiConsoleTheme.Sixteen)
-                        .Enrich.FromLogContext()
-                        .MinimumLevel.Debug().CreateLogger();
-
+            ILogger logger = LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger("Program");
+            #region start app
             try
             {
-                var builder = Host.CreateDefaultBuilder(args);
-                builder.ConfigureAppConfiguration(builder =>
+                var separator = new string('-', 30);
+                logger.LogInformation($"{separator} Starting host {separator} ");
+                var builder = Host.CreateApplicationBuilder(args);
+                builder.Configuration
+                    .AddEncryptedProvider()
+                    .AddJsonFile("appsettings.json")
+                    .AddJsonFile($"appsettings.Development.json", true, false)
+                    .Build();
+
+                GlobalConfig.Configure = builder.Configuration;
+
+                var env = builder.Environment.IsDevelopment();
+
+                builder.Services.AddLogging(loggerbuilder =>
+                {
+                    loggerbuilder.ClearProviders();
+                    loggerbuilder.AddConsole().AddSimpleConsole();
+                })
+                .AddQuartz((options) =>
                     {
-                        var configure = new ConfigurationBuilder()
-                            .AddJsonFile("appsettings.json")
-                            .AddJsonFile($"appsettings.Development.json", true, false)
-                            .AddEnvironmentVariables()
-                            .Build();
-                        builder.Sources.Clear();
-                        builder.AddConfiguration(configure);
-                    })
-                    .ConfigureServices((context, ser) =>
-                    {
-                        ser.AddQuartz((options) =>
-                        {
-                            options.ScheduleJob<DataTransDemoJob>(
-                                configure =>
+                        options.ScheduleJob<DataTransDemoJob>(
+                            configure =>
+                            {
+                                configure.WithIdentity("testtrigger");
+                                configure.ForJob(new JobKey("testjob"));
+                                configure.WithSimpleSchedule(p =>
                                 {
-                                    configure.WithIdentity("testtrigger");
-                                    configure.ForJob(new JobKey("testjob"));
-                                    configure.WithSimpleSchedule(p =>
-                                    {
-                                        p.WithIntervalInSeconds(30).WithRepeatCount(0).Build();
-                                    });
-                                    configure.StartNow();
-                                }
-                                , jobconfigure =>
-                                {
-                                    jobconfigure.WithIdentity("testjob");
-                                    var jobdata = new Dictionary<string, string>
-                                    {
-                                        { "source", context.Configuration.GetSection("Task").GetChildren().First().GetValue<string>("source") },
-                                        { "target", context.Configuration.GetSection("Task").GetChildren().First().GetValue<string>("target") }
-                                    };
-                                    jobconfigure.SetJobData(new(jobdata));
+                                    p.WithIntervalInSeconds(30).WithRepeatCount(0).Build();
                                 });
-                        });
-
-                        ser.AddQuartzHostedService(configure =>
-                        {
-                            configure.WaitForJobsToComplete = true;
-                        });
-
-                        ser.AddSingleton<ITransferFactory, TransferFactory>();
-                        if (!string.IsNullOrWhiteSpace(context.Configuration.GetConnectionString("oracle")))
-                        {
-                            ser.AddDbContext<OracleDBContext>(options =>
+                                configure.StartAt(DateTime.Now.AddSeconds(5));
+                            }
+                            , jobconfigure =>
                             {
-                                options.UseOracle(context.Configuration.GetConnectionString("oracle"));
+                                jobconfigure.WithIdentity("testjob");
+                                var jobdata = new Dictionary<string, string>
+                                {
+                                        { "sourcetype", builder.Configuration.GetSection("Task").GetChildren().First().GetValue<string>("source") },
+                                        { "targettype", builder.Configuration.GetSection("Task").GetChildren().First().GetValue<string>("target") }
+                                };
+                                jobconfigure.SetJobData(new(jobdata));
                             });
-                        }
-                        if (!string.IsNullOrWhiteSpace(context.Configuration.GetConnectionString("sqlserver")))
-                        {
-                            ser.AddDbContext<SqlServerDBContext>(options =>
-                            {
-                                options.UseSqlServer(context.Configuration.GetConnectionString("sqlserver"));
-                            });
-                        }
-                        if (!string.IsNullOrWhiteSpace(context.Configuration.GetConnectionString("mysql")))
-                        {
-                            ser.AddDbContext<MySQLDBContext>(options =>
-                            {
-                                options.UseMySql(context.Configuration.GetConnectionString("mysql"), new MySqlServerVersion(new Version(8, 0, 31)));
-                            });
-                        }
-
-                    }).ConfigureLogging(log =>
+                    })
+                .AddQuartzHostedService(configure =>
                     {
-                        log.AddSerilog(Log.Logger);
-                    });
+                        configure.AwaitApplicationStarted = true;
+                        configure.WaitForJobsToComplete = true;
+                    })
+                .AddSingleton<ITransferFactory>(serviceProvider =>
+                {
+                    var logger = serviceProvider.GetRequiredService<ILogger<TransferFactory>>();
+                    return new TransferFactory(logger);
+                });
+                var app = builder.Build();
+                await app.RunAsync();
 
-                var host = builder.Build();
-                await host.RunAsync();
+                logger.LogInformation($"{separator} Exit host {separator} ");
             }
             catch (Exception ex)
             {
-                Log.Logger.Fatal(ex, "Server Run Exception!");
+                logger.LogError(ex, "Host terminated unexpectedly");
             }
-
+            #endregion
         }
-
     }
 }

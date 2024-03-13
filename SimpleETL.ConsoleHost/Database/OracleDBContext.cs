@@ -1,9 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using SimpleETL.Util;
 
 namespace SimpleETL.ConsoleHost.Database
 {
@@ -16,7 +12,11 @@ namespace SimpleETL.ConsoleHost.Database
         {
             if (!optionsBuilder.IsConfigured)
             {
-                optionsBuilder.UseOracle(_connectionString);
+                optionsBuilder
+                    .LogTo(GlobalConfig.DBContext_EnableLog ? Console.WriteLine : _ => { })
+                    .EnableSensitiveDataLogging(GlobalConfig.DBContext_EnableSensitiveDataLog)
+                    .EnableDetailedErrors(GlobalConfig.DBContext_EnableDetailedErrors)
+                    .UseOracle(_connectionString);
             }
             base.OnConfiguring(optionsBuilder);
         }

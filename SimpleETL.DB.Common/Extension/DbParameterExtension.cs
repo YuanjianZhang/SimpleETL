@@ -1,16 +1,8 @@
 ﻿using MySqlConnector;
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.Data.SqlClient;
-using System.Globalization;
-using System.Linq;
-using System.Reflection;
-using System.Reflection.Metadata;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace SimpleETL.DB.Common.Extension
 {
@@ -91,7 +83,7 @@ namespace SimpleETL.DB.Common.Extension
                 builder.AppendLine(p.ParameterName + "=" + (logParameterValues ? p.Value?.ToString() : "?"));
                 return builder.ToString();
             });
-            return string.Join(string.Empty,result);
+            return string.Join(string.Empty, result);
         }
     }
 }

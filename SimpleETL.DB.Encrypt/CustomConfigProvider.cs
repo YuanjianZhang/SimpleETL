@@ -1,13 +1,11 @@
 ﻿using Microsoft.Extensions.Configuration;
 
-namespace SimpleETL.Encrypt
+namespace SimpleETL.DB.Encrypt
 {
     public class CustomConfigProvider : ConfigurationProvider, IConfigurationSource
     {
-
         public CustomConfigProvider()
         {
-
         }
 
         public override void Load()
@@ -19,10 +17,11 @@ namespace SimpleETL.Encrypt
         {
             // do whatever you need to do here, for example load the file and unencrypt key by key
             //Like:
+            //
             var configValues = new Dictionary<string, string>
             {
-                //{"SourceSQLServer", "Data Source=127.0.0.1,1433;uid=sa;pwd=admin;database=test;TrustServerCertificate=true"},
-                //{"targetMySQL", "Server=192.168.10.5;Port=3306;Database=testdb;Uid=testdb;Pwd=123456789;AllowLoadLocalInfile=true;"}
+                {"oracle", Environment.GetEnvironmentVariable("oracle")},
+                {"sqlserver", Environment.GetEnvironmentVariable("sqlserver")}
             };
 
 
@@ -33,8 +32,8 @@ namespace SimpleETL.Encrypt
         {
             var configValues = new Dictionary<string, string>
             {
-                //{"SourceSQLServer", "Data Source=127.0.0.1,1433;uid=sa;pwd=admin;database=test;TrustServerCertificate=true"},
-                //{"targetMySQL", "Server=192.168.10.5;Port=3306;Database=testdb;Uid=testdb;Pwd=123456789;AllowLoadLocalInfile=true;"}
+                //{"oracle", "SERVER=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=DEMO)));uid=test;pwd=test;"},
+                //{"sqlserver", "Server=127.0.0.1;Database=test;User Id=sa;Password=123456;TrustServerCertificate=true"}
             };
             return configValues;
         }

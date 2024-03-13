@@ -4,7 +4,7 @@ SimpleETL
 
 env
 -- 
-* [x] .NET 6
+* [x] .NET 8
 
 Features
 --

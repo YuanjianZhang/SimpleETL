@@ -1,15 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using SimpleETL.DB.Common;
-using SimpleETL.DB.Common.SQL;
-using SimpleETL.DB.Trans;
 using SimpleETL.DB.Trans.Interface;
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SimpleETL.Business
 {
@@ -18,12 +10,29 @@ namespace SimpleETL.Business
     /// </summary>
     public class DataTransferDemo
     {
-        public DataTransferDemo(ILogger<DataTransferDemo> logger, ITransferFactory transferFactory)
+        public DataTransferDemo(ILogger logger, ITransferFactory transferFactory, IConfiguration configure, string sourcetype, string targettype)
         {
+            _logger = logger;
             _transferFactory = transferFactory;
+            _configure = configure;
+
+            Enum.TryParse<DatabaseType>(sourcetype, true, out DatabaseType sourcetypeEnum);
+            _transferFactory.SourceType = sourcetypeEnum;
+            _transferFactory.SourceConStr = _configure?[sourcetype];
+
+            Enum.TryParse<DatabaseType>(targettype, true, out DatabaseType targettypeEnum);
+            _transferFactory.TargetType = targettypeEnum;
+            _transferFactory.TargetConStr = _configure?[targettype];
+
+            _dBTrans = _transferFactory.GetDBTransfer();
+            _Helper = new DBHelperFactory(_logger, _transferFactory.SourceType, _transferFactory.SourceConStr).BuilderDBHelper();
         }
-        private readonly ILogger<DataTransferDemo> _logger;
+        private readonly ILogger _logger;
         private readonly ITransferFactory _transferFactory;
+        private readonly IConfiguration _configure;
+        private readonly IDBTransfer _dBTrans;
+        private const string CompareTablePrefix = "bigdata_";
+        private readonly IDBHelper _Helper;
 
         public async Task<long> TransTestTableData(string sourcetype, string sourceStr, string targettype, string targetStr)
         {
@@ -33,10 +42,7 @@ namespace SimpleETL.Business
                 Enum.TryParse<DatabaseType>(targettype, true, out DatabaseType ttype))
             {
                 var result = await _transferFactory
-                    .GetDBTransfer(sourceType: stype,
-                                   sourceStr: sourceStr,
-                                   targetType: ttype,
-                                   targetStr: targetStr)
+                    .GetDBTransfer()
                     .BulkCopy(sSql, tablename, null);
                 _logger.LogInformation($"【{sourcetype} To {targettype}】{tablename} BulkCopy Nums:{result}");
                 return result;
